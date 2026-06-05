@@ -1,0 +1,112 @@
+28-Day VLSI Project Plan: Pipelined RV32I Processor with Coprocessor
+Phase 1: The Building Blocks & Core Execution (Days 1–7)
+Goal: Build and verify the foundational, non-pipelined mathematical and logic heart of the processor.
+
+Day 1: Specification & ISA Definition
+
+Review the RISC-V RV32I (base integer) instruction set architecture.
+
+Map out your register file layout (32 registers, 32-bits wide) and list the specific opcodes to support (R, I, S, B, U, J-type).
+
+Day 2: The Arithmetic Logic Unit (ALU)
+
+Write the Verilog code for the ALU to handle addition, subtraction, bitwise shifts, and comparisons.
+
+Day 3: Register File & Immediate Generator
+
+Implement the 32-word register file (two read ports, one write port).
+
+Design the Immediate Generator to sign-extend constants based on the instruction format.
+
+Day 4: Memory Interface Module
+
+Create a basic single-cycle Instruction Memory and Data Memory module (mocking RAM/ROM using Verilog arrays or $readmemh).
+
+Day 5: Single-Cycle Control Unit
+
+Design the combinational Control Unit that decodes the 32-bit instruction and outputs the correct control signals (e.g., RegWrite, ALUOp, MemRead, MemWrite).
+
+Day 6: Top-Level Single-Cycle Integration
+
+Wire the ALU, Register File, ImmGen, Memory, and Control Unit together to form a functioning Single-Cycle CPU.
+
+Day 7: Single-Cycle Testbench Verification
+
+Write a self-checking testbench in Xilinx Vivado. Pass a simple assembly program (like a Fibonacci calculator) through it to ensure logic is 100% correct before pipelining.
+
+Phase 2: Inserting the Pipeline & Facing Hazards (Days 8–15)
+Goal: Slice your design into 5 distinct stages and conquer the core VLSI challenges of timing and data dependency.
+
+Day 8: Pipeline Registers (The Slices)
+
+Create the four synchronous pipeline registers: IF/ID, ID/EX, EX/MEM, and MEM/WB.
+
+Modify your design to pass all data and control signals through these registers on the rising edge of the clock.
+
+Day 9: Identifying Data Hazards
+
+Run your single-cycle testbench on your new pipelined structure and analyze where it fails.
+
+Map out Read-After-Write (RAW) hazards on paper to trace exactly why instructions read stale register data.
+
+Day 10: Implementing the Forwarding Unit
+
+Write the logic for a Forwarding Unit in the Execute (EX) stage to bypass the register file when a dependency is detected.
+
+Day 11: Implementing the Hazard Detection & Stalling Unit
+
+Handle the "Load-Use" hazard by designing a stalling unit that inserts a "bubble" (NOP) into the pipeline and freezes the Program Counter (PC) for one cycle.
+
+Day 12: Control Hazards (Branches & Jumps)
+
+Implement a "Branch Not Taken" strategy. If a branch is taken, write the logic to flush (clear) the instructions currently sitting in the IF/ID and ID/EX registers.
+
+Days 13–15: Pipelined System Verification
+
+Spend three days stress-testing the pipelined processor in Vivado using edge-case assembly tests (back-to-back operations, branches immediately following arithmetic).
+
+Phase 3: The Coprocessor & Clock Domain Crossing (Days 16–22)
+Goal: Integrate your specialized hardware (like your AES engine) into the CPU space using real-world bus protocols.
+
+Day 16: Coprocessor Optimization & Interface
+
+Wrap your existing 128-bit AES block inside a slave interface with defined Command, Status, and Data I/O registers.
+
+Day 17: Memory-Mapped I/O (MMIO) Design
+
+Modify the Data Memory stage. If the CPU writes to a specific high address (e.g., 0x4000_0000), route those signals to the coprocessor instead of RAM.
+
+Day 18: The VLSI Clock Boundary Challenge
+
+Establish two separate clock domains: run the CPU on a fast clock (e.g., 100 MHz) and the Coprocessor on a slower clock (e.g., 25 MHz) to simulate dynamic power saving.
+
+Days 19–20: Designing the Dual-Clock FIFO
+
+Design a Clock Domain Crossing (CDC) Dual-Clock FIFO using Gray code pointers to safely pass data across asynchronous clock boundaries without causing metastability.
+
+Days 21–22: System Integration & Coprocessor Testing
+
+Connect the processor to the Dual-Clock FIFO, and the FIFO to the Coprocessor. Verify the end-to-end encryption routine via simulation.
+
+Phase 4: Synthesis, Static Timing Analysis, & Area Reports (Days 23–28)
+Goal: Stop treating your code like software. Look at the actual gates, timing constraints, and physical footprint.
+
+Day 23: Synthesis and Gate Mapping
+
+Run synthesis in Xilinx Vivado targeting a specific FPGA architecture and analyze the generated gate-level Schematic View.
+
+Day 24: Creating Constraints & Timing Closure
+
+Write a basic .xdc (Xilinx Design Constraints) file to define clock periods. Run a timing analysis to check for Setup and Hold time violations.
+
+Day 25: Identifying and Fixing Critical Paths
+
+Locate the "Worst Negative Slack" (WNS). Modify your RTL code to break up long combinational paths by restructuring logic or adding intermediate registers.
+
+Day 26: Power & Area Optimization
+
+Generate and analyze Power and Utilization Reports. Optimize the hardware footprint by exploring manual clock gating or register trimming.
+
+Days 27–28: Final Verification & Repository Wrap-Up
+
+Run your test suite on the post-synthesis netlist to confirm functional correctness, and thoroughly document your architecture and timing results in your repository.
