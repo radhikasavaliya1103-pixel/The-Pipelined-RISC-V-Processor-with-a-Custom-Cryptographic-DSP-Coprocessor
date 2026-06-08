@@ -1,0 +1,145 @@
+**Day 2: The Arithmetic Logic Unit (ALU)**.
+
+To set up your project cleanly, we’ll first lay out the exact functional requirements of your ALU, and then write the production-ready Verilog code that you can copy straight into Vivado.
+
+---
+
+### Part 1: Defining the ALU Operation Codes (`ALUControl`)
+
+The ALU needs to know exactly which operation to perform based on a control signal sent by the processor's Control Unit. We will use a **4-bit control signal (`ALUControl`)** to map all the operations required by our instruction set:
+
+| `ALUControl` (Binary) | Operation | Corresponding RV32I Instructions |
+| --- | --- | --- |
+| **`0000`** | Bitwise AND | `AND`, `ANDI` |
+| **`0001`** | Bitwise OR | `OR`, `ORI` |
+| **`0010`** | Add (`+`) | `ADD`, `ADDI`, `LW`, `SW` |
+| **`0110`** | Subtract (`-`) | `SUB`, `BEQ`, `BNE` |
+| **`0100`** | Bitwise XOR | `XOR` |
+| **`0101`** | Shift Left Logical (`<<`) | `SLL` |
+| **`0111`** | Shift Right Logical (`>>`) | `SRL` |
+
+#### The "Zero" Flag
+
+In VLSI and computer architecture, the ALU doesn't just output the math result; it also outputs status flags. For our pipelined RISC-V processor, we need a **1-bit `Zero` flag**.
+
+* If the ALU result is exactly `0`, the `Zero` pin goes high (`1'b1`).
+* This is exactly how conditional branches like `BEQ` (Branch if Equal) work: the processor subtracts `SrcB` from `SrcA`. If the result is zero, the `Zero` flag hits `1`, telling the pipeline to jump to the branch address!
+
+---
+
+### Part 2: Writing the Verilog Code for the ALU
+
+Open VS Code or Vivado, create a new design file named `alu.v`, and use the following structural behavioral code:
+
+```verilog
+`timescale 1ns / 1ps
+//////////////////////////////////////////////////////////////////////////////////
+// Company: 
+// Engineer: Radhika Savaliya
+// 
+// Create Date: 2026/06/08
+// Design Name: RISC-V Pipelined Processor
+// Module Name: alu
+// Target Devices: Generic FPGA / ASIC Flow
+// Tool Versions: Vivado 2024+ / Standard Edition
+// Description: 32-bit Core Execution Arithmetic Logic Unit (ALU) for RV32I ISA.
+// 
+//////////////////////////////////////////////////////////////////////////////////
+
+module alu (
+    input  wire [31:0] SrcA,          // 32-bit Input Operand A
+    input  wire [31:0] SrcB,          // 32-bit Input Operand B
+    input  wire [3:0]  ALUControl,    // 4-bit Operation Selection Control
+    output reg  [31:0] ALUResult,     // 32-bit Math/Logic Output
+    output wire        Zero           // 1-bit Signal: High if ALUResult == 0
+);
+
+    // Combinational Logic Block for ALU Operations
+    always @(*) begin
+        case (ALUControl)
+            4'b0000: ALUResult = SrcA & SrcB;                 // Bitwise AND
+            4'b0001: ALUResult = SrcA | SrcB;                 // Bitwise OR
+            4'b0010: ALUResult = SrcA + SrcB;                 // Addition
+            4'b0110: ALUResult = SrcA - SrcB;                 // Subtraction
+            4'b0100: ALUResult = SrcA ^ SrcB;                 // Bitwise XOR
+            4'b0101: ALUResult = SrcA << SrcB[4:0];           // Shift Left Logical (Shift amount is lower 5 bits of SrcB)
+            4'b0111: ALUResult = SrcA >> SrcB[4:0];           // Shift Right Logical
+            default: ALUResult = 32'h0000_0000;              // Default catch-all (prevents unintended latches)
+        endcase
+    end
+
+    // Assign Zero flag: Active high if the result of the operation is 0
+    assign Zero = (ALUResult == 32'h0000_0000) ? 1'b1 : 1'b0;
+
+endmodule
+
+```
+
+### ⚠️ Critical VLSI Design Tips for This Code:
+
+1. **Preventing Latches:** Notice the `default: ALUResult = 32'h0000_0000;` inside the case statement. In combinational blocks (`always @(*)`), if you don't define what happens to an output for every possible input combination, Vivado synthesis will assume you want to hold the old value and will insert an **unintended hardware latch**. Latches are highly unstable in synchronous VLSI circuits and will ruin your clock timing.
+2. **Shift Width Constraints:** For `SLL` and `SRL`, a 32-bit register can only be shifted a maximum of 31 times. Therefore, the shift amount only requires 5 bits ($2^5 = 32$). We slice `SrcB[4:0]` to optimize physical wiring and avoid synthesizing massive, unnecessary multiplexer networks.
+
+---
+
+### Part 3: How to Set Up and Run This in Vivado
+
+Now, let's get this simulating in Vivado to finish your Day 2 tasks:
+
+1. **Create the Project:** Open Vivado $\rightarrow$ Click **Create Project** $\rightarrow$ Name it `RISCV_Pipelined_Processor`. Select **RTL Project** and leave target parts as default (or select an entry-level FPGA like the Artix-7 if prompted).
+2. **Add Design File:** Click **Add Sources** $\rightarrow$ **Add or create design sources** $\rightarrow$ Create a file named `alu.v` and paste the code above.
+3. **Create the Testbench:** To verify your hardware behaves correctly before moving to Day 3, we need to drive inputs into it. Click **Add Sources** $\rightarrow$ **Add or create simulation sources** $\rightarrow$ Create a file named `tb_alu.v` and paste this self-checking test suite:
+
+```verilog
+`timescale 1ns / 1ps
+
+module tb_alu();
+
+    // Inputs to UUT (Unit Under Test)
+    reg [31:0] SrcA;
+    reg [31:0] SrcB;
+    reg [3:0]  ALUControl;
+
+    // Outputs from UUT
+    wire [31:0] ALUResult;
+    wire        Zero;
+
+    // Instantiate the Unit Under Test
+    alu uut (
+        .SrcA(SrcA), 
+        .SrcB(SrcB), 
+        .ALUControl(ALUControl), 
+        .ALUResult(ALUResult), 
+        .Zero(Zero)
+    );
+
+    initial begin
+        // Initialize Inputs
+        SrcA = 32'd15;
+        SrcB = 32'd10;
+        ALUControl = 4'b0010; // Test Addition (15 + 10)
+        #10;
+        
+        ALUControl = 4'b0110; // Test Subtraction (15 - 10)
+        #10;
+
+        SrcA = 32'd5;
+        SrcB = 32'd5;
+        ALUControl = 4'b0110; // Test Subtraction resulting in Zero (5 - 5)
+        #10;
+
+        SrcA = 32'hAAAA_AAAA;
+        SrcB = 32'h5555_5555;
+        ALUControl = 4'b0001; // Test Bitwise OR
+        #10;
+
+        $finish; // End Simulation
+    end
+      
+endmodule
+
+```
+
+4. **Run Simulation:** In Vivado's left sidebar, click **Run Simulation** $\rightarrow$ **Run Behavioral Simulation**.
+
+Once the waveform viewer opens, zoom fit to see the lines change. Check if `ALUResult` equals `5` when subtracting `5 - 5` and confirm that the `Zero` line flips from `0` to `1` exactly at that timestamp!
